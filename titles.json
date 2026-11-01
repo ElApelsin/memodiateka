@@ -15,5 +15,23 @@
     "ratings": {
       "kp": 7.0
     }
+  },
+  {
+    "id": "haibane-renmei-2002",
+    "title": "Союз Серокрылых",
+    "original": "Haibane Renmei",
+    "kind": "anime",
+    "year": 2002,
+    "genres": [
+      "фэнтези",
+      "драма"
+    ],
+    "status": "want",
+    "date": "2026-11-02",
+    "wiki": "Союз Серокрылых",
+    "ratings": {
+      "kp": 7.9,
+      "imdb": 7.9
+    }
   }
 ]
