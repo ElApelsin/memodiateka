@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Моя медиатека</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Golos+Text:wght@400;500;600&display=swap">
+<style>
+/* Layout: одна колонка-лента «билетов», сверху счётчики и фильтры-чипы */
+:root{
+  --bg:#eef1f5; --surface:#ffffff; --fg:#17202b; --muted:#5d6b7c; --line:#d5dce5;
+  --accent:#2f5bd8; --film:#2f5bd8; --series:#0f8a6a; --cartoon:#c0620e; --anime:#b8327a;
+  --display:"Unbounded","Arial Black",system-ui,sans-serif;
+  --body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#10151c; --surface:#18202a; --fg:#e7ecf2; --muted:#93a1b2; --line:#2a3440;
+  --accent:#7e9ff5; --film:#7e9ff5; --series:#4cc9a3; --cartoon:#f0a052; --anime:#f07ab8; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10151c; --surface:#18202a; --fg:#e7ecf2; --muted:#93a1b2; --line:#2a3440;
+  --accent:#7e9ff5; --film:#7e9ff5; --series:#4cc9a3; --cartoon:#f0a052; --anime:#f07ab8; color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 var(--body)}
+.wrap{max-width:760px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:20px}
+h1{font:700 clamp(26px,6vw,38px)/1.1 var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:4px 0 0}
+.stats{display:flex;flex-wrap:wrap;gap:8px 20px;font-variant-numeric:tabular-nums;color:var(--muted)}
+.stats b{color:var(--fg);font-family:var(--display);font-weight:500;font-size:18px;margin-right:4px}
+.filters{display:grid;gap:8px}
+.row{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:500 13px var(--body);padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.chip:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input[type=search]{width:100%;box-sizing:border-box;font:15px var(--body);padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+.list{display:grid;gap:10px}
+.item{display:grid;grid-template-columns:6px 1fr auto;gap:0 14px;background:var(--surface);border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.stripe{background:var(--k)}
+.main{padding:12px 0;min-width:0}
+.t{font-weight:600;font-size:16px;margin:0}
+.orig{color:var(--muted);font-size:13px}
+.meta{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:13px;color:var(--muted);margin-top:4px}
+.kind{color:var(--k);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:11px}
+.note{margin:6px 0 0;font-size:14px}
+.score{padding:12px 14px 12px 0;text-align:right;font-variant-numeric:tabular-nums}
+.score b{font:700 22px var(--display);display:block}
+.score small{color:var(--muted);font-size:11px;white-space:nowrap}
+.status{font-size:12px;font-weight:500}
+.empty{color:var(--muted);text-align:center;padding:32px 8px;border:1px dashed var(--line);border-radius:12px}
+.empty b{display:block;color:var(--fg);font-family:var(--display);font-weight:500;margin-bottom:6px}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Моя медиатека</h1>
+    <p class="sub">Фильмы, сериалы, мультфильмы и аниме. Пополняется из чата с Claude.</p>
+  </header>
+  <div class="stats" id="stats"></div>
+  <div class="filters">
+    <input type="search" id="q" placeholder="Найти по названию, жанру или заметке" aria-label="Поиск">
+    <div class="row" id="kinds"></div>
+    <div class="row" id="statuses"></div>
+  </div>
+  <div class="list" id="list"><div class="empty"><b>Загружаю библиотеку…</b></div></div>
+</div>
+
+<script>
+const KINDS={film:"Фильм",series:"Сериал",cartoon:"Мультфильм",anime:"Аниме"};
+const STAT={watched:"Посмотрено",watching:"Смотрю",want:"Хочу посмотреть",dropped:"Брошено"};
+let items=[],fKind="all",fStat="all";
+const $=id=>document.getElementById(id);
+
+function chips(el,map,get,set){
+  el.innerHTML="";
+  for(const [k,v] of [["all","Все"],...Object.entries(map)]){
+    const b=document.createElement("button");b.className="chip";b.textContent=v;b.id="f-"+el.id+"-"+k;
+    b.setAttribute("aria-pressed",get()===k);
+    b.onclick=()=>{set(k);render()};el.append(b);
+  }
+}
+function esc(s){const d=document.createElement("div");d.textContent=s??"";return d.innerHTML}
+
+function render(){
+  chips($("kinds"),KINDS,()=>fKind,v=>fKind=v);
+  chips($("statuses"),STAT,()=>fStat,v=>fStat=v);
+  const w=items.filter(i=>i.status==="watched"),rated=w.filter(i=>i.rating);
+  const avg=rated.length?(rated.reduce((s,i)=>s+i.rating,0)/rated.length).toFixed(1):"–";
+  $("stats").innerHTML=`<span><b>${w.length}</b>посмотрено</span><span><b>${items.filter(i=>i.status==="want").length}</b>в планах</span><span><b>${avg}</b>средняя оценка</span>`;
+  const q=$("q").value.trim().toLowerCase();
+  const shown=items.filter(i=>(fKind==="all"||i.kind===fKind)&&(fStat==="all"||i.status===fStat)&&
+    (!q||[i.title,i.original,i.note,...(i.genres||[])].join(" ").toLowerCase().includes(q)))
+    .sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  if(!items.length){$("list").innerHTML='<div class="empty"><b>Пока пусто</b>Скажите Claude в чате «посмотрел(а) …» или «подбери, что посмотреть», и тайтлы появятся здесь.</div>';return}
+  if(!shown.length){$("list").innerHTML='<div class="empty"><b>Ничего не нашлось</b>Сбросьте фильтры или поиск.</div>';return}
+  $("list").innerHTML=shown.map(i=>`
+    <article class="item" style="--k:var(--${KINDS[i.kind]?i.kind:"film"})">
+      <div class="stripe"></div>
+      <div class="main">
+        <p class="t">${esc(i.title)}</p>
+        ${i.original?`<div class="orig">${esc(i.original)}</div>`:""}
+        <div class="meta"><span class="kind">${KINDS[i.kind]||""}</span>${i.year?`<span>${i.year}</span>`:""}${i.genres?.length?`<span>${esc(i.genres.join(", "))}</span>`:""}<span class="status">${STAT[i.status]||""}</span></div>
+        ${i.note?`<p class="note">${esc(i.note)}</p>`:""}
+      </div>
+      <div class="score">${i.rating?`<b>${i.rating}</b><small>из 10</small>`:""}</div>
+    </article>`).join("");
+}
+$("q").addEventListener("input",render);
+
+fetch("titles.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw r.status;return r.json()})
+  .then(d=>{items=d;render()})
+  .catch(()=>{$("list").innerHTML='<div class="empty"><b>Не удаётся загрузить</b>Проверьте соединение и обновите страницу.</div>'});
+</script>
+</body>
+</html>
