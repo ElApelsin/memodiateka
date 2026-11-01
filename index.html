@@ -44,6 +44,24 @@ input[type=search]{width:100%;box-sizing:border-box;font:15px var(--body);paddin
 .score b{font:700 22px var(--display);display:block}
 .score small{color:var(--muted);font-size:11px;white-space:nowrap}
 .status{font-size:12px;font-weight:500}
+summary.item{list-style:none;cursor:pointer}
+summary.item::-webkit-details-marker{display:none}
+summary.item:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+details.card{background:var(--surface);border-radius:12px;border:1px solid var(--line);overflow:hidden}
+details.card>.item{border:0;border-radius:0;background:transparent}
+.chev{color:var(--muted);font-size:12px;transition:transform .2s}
+details[open] .chev{transform:rotate(180deg)}
+.more{display:flex;gap:14px;padding:0 14px 14px 20px}
+.more img{width:96px;flex:none;border-radius:6px;align-self:flex-start;background:var(--line)}
+.more>div{min-width:0;display:grid;gap:8px;font-size:14px}
+.ext{margin:0;color:var(--fg)}
+.pub{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.pub b{color:var(--fg)}
+.mine{border-top:1px solid var(--line);padding-top:8px}
+.mine b{font-family:var(--display);font-weight:500}
+.src{font-size:12px;color:var(--muted)}
+.src a{color:var(--accent)}
+@media (prefers-reduced-motion:reduce){.chev{transition:none}}
 .empty{color:var(--muted);text-align:center;padding:32px 8px;border:1px dashed var(--line);border-radius:12px}
 .empty b{display:block;color:var(--fg);font-family:var(--display);font-weight:500;margin-bottom:6px}
 </style>
@@ -57,7 +75,7 @@ input[type=search]{width:100%;box-sizing:border-box;font:15px var(--body);paddin
   </header>
   <div class="stats" id="stats"></div>
   <div class="filters">
-    <input type="search" id="q" placeholder="Найти по названию, жанру или заметке" aria-label="Поиск">
+    <input type="search" id="q" placeholder="Найти по названию, жанру или отзыву" aria-label="Поиск">
     <div class="row" id="kinds"></div>
     <div class="row" id="statuses"></div>
   </div>
@@ -93,17 +111,45 @@ function render(){
   if(!items.length){$("list").innerHTML='<div class="empty"><b>Пока пусто</b>Скажите Claude в чате «посмотрел(а) …» или «подбери, что посмотреть», и тайтлы появятся здесь.</div>';return}
   if(!shown.length){$("list").innerHTML='<div class="empty"><b>Ничего не нашлось</b>Сбросьте фильтры или поиск.</div>';return}
   $("list").innerHTML=shown.map(i=>`
-    <article class="item" style="--k:var(--${KINDS[i.kind]?i.kind:"film"})">
+    <details class="card" data-id="${esc(i.id)}" style="--k:var(--${KINDS[i.kind]?i.kind:"film"})">
+    <summary class="item">
       <div class="stripe"></div>
       <div class="main">
         <p class="t">${esc(i.title)}</p>
         ${i.original?`<div class="orig">${esc(i.original)}</div>`:""}
         <div class="meta"><span class="kind">${KINDS[i.kind]||""}</span>${i.year?`<span>${i.year}</span>`:""}${i.genres?.length?`<span>${esc(i.genres.join(", "))}</span>`:""}<span class="status">${STAT[i.status]||""}</span></div>
-        ${i.note?`<p class="note">${esc(i.note)}</p>`:""}
       </div>
-      <div class="score">${i.rating?`<b>${i.rating}</b><small>из 10</small>`:""}</div>
-    </article>`).join("");
+      <div class="score">${i.rating?`<b>${i.rating}</b><small>моя оценка</small>`:""}<div class="chev" aria-hidden="true">▼</div></div>
+    </summary>
+    <div class="more"><div>
+      <p class="ext">${i.wiki?"Загружаю описание…":"Описания пока нет."}</p>
+      ${pub(i.ratings)}
+      ${(i.note||i.rating)&&(i.status==="watched"||i.status==="dropped")?`<div class="mine">${i.rating?`<b>${i.rating}/10</b> `:""}${esc(i.note||"")}</div>`:""}
+    </div></div>
+    </details>`).join("");
 }
+function pub(r){
+  if(!r)return"";
+  const n={kp:"Кинопоиск",imdb:"IMDb",shiki:"Shikimori"};
+  const parts=Object.entries(r).filter(([k,v])=>n[k]&&v).map(([k,v])=>`${n[k]} <b>${Number(v).toFixed(1)}</b>`);
+  return parts.length?`<div class="pub">${parts.join(" · ")}</div>`:"";
+}
+// Описание и обложка грузятся из Википедии при первом раскрытии карточки
+$("list").addEventListener("toggle",e=>{
+  const d=e.target;if(!d.open||d.dataset.loaded)return;d.dataset.loaded=1;
+  const i=items.find(x=>x.id===d.dataset.id);if(!i?.wiki)return;
+  const box=d.querySelector(".more"),ext=d.querySelector(".ext");
+  fetch("https://ru.wikipedia.org/api/rest_v1/page/summary/"+encodeURIComponent(i.wiki))
+    .then(r=>{if(!r.ok)throw r.status;return r.json()})
+    .then(w=>{
+      ext.textContent=w.extract||"Описания нет.";
+      if(w.thumbnail?.source){const im=new Image();im.src=w.thumbnail.source;im.alt="Постер: "+i.title;im.loading="lazy";box.prepend(im)}
+      const s=document.createElement("div");s.className="src";
+      s.innerHTML=`Описание: <a href="${esc(w.content_urls?.desktop?.page||"")}" target="_blank" rel="noopener">Википедия</a>, CC BY-SA`;
+      ext.after(s);
+    })
+    .catch(()=>{ext.textContent="Не удалось загрузить описание из Википедии.";d.dataset.loaded=""});
+},true);
 $("q").addEventListener("input",render);
 
 fetch("titles.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw r.status;return r.json()})
