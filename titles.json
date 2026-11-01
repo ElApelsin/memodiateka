@@ -1,1 +1,15 @@
-[]
+[
+  {
+    "id": "excalibur-1981",
+    "title": "Экскалибур",
+    "original": "Excalibur",
+    "kind": "film",
+    "year": 1981,
+    "genres": [
+      "фэнтези",
+      "приключения"
+    ],
+    "status": "want",
+    "date": "2026-11-02"
+  }
+]
