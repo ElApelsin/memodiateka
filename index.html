@@ -33,22 +33,22 @@ h1{font:700 clamp(26px,6vw,38px)/1.1 var(--display);margin:0;text-wrap:balance;l
 .chip:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 input[type=search]{width:100%;box-sizing:border-box;font:15px var(--body);padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
 .list{display:grid;gap:10px}
-.item{display:grid;grid-template-columns:6px 1fr auto;gap:0 14px;background:var(--surface);border-radius:12px;overflow:hidden;border:1px solid var(--line)}
-.stripe{background:var(--k)}
-.main{padding:12px 0;min-width:0}
+.item{display:grid;grid-template-columns:1fr auto;gap:0 14px;background:var(--surface);border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.main{padding:12px 0 12px 14px;min-width:0}
 .t{font-weight:600;font-size:16px;margin:0}
 .orig{color:var(--muted);font-size:13px}
 .meta{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:13px;color:var(--muted);margin-top:4px}
 .kind{color:var(--k);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:11px}
 .note{margin:6px 0 0;font-size:14px}
 .score{padding:12px 14px 12px 0;text-align:right;font-variant-numeric:tabular-nums}
-.score b{font:700 22px var(--display);display:block}
-.score small{display:block;color:var(--muted);font-size:11px;white-space:nowrap}
+.my{width:fit-content;text-align:center;padding:4px 10px 5px;border-radius:10px;margin:0 0 4px auto;background:color-mix(in srgb,var(--k) 14%,transparent)}
+.my b{font:700 22px var(--display);display:block;color:var(--k)}
+.my small{display:block;color:var(--k);font-size:11px;font-weight:500;white-space:nowrap}
 .status{font-size:12px;font-weight:500}
 summary.item{list-style:none;cursor:pointer}
 summary.item::-webkit-details-marker{display:none}
 summary.item:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-details.card{background:var(--surface);border-radius:12px;border:1px solid var(--line);overflow:hidden}
+details.card{background:var(--surface);border-radius:12px;border:1px solid var(--line);border-left:6px solid var(--k);overflow:hidden}
 details.card>.item{border:0;border-radius:0;background:transparent}
 .chev{display:inline-block;color:var(--muted);font-size:12px;transition:transform .2s}
 header{position:relative}
@@ -56,14 +56,14 @@ h1{padding-right:52px}
 #theme{position:absolute;top:0;right:0;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--fg);font-size:18px;cursor:pointer}
 #theme:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 details[open] .chev{transform:rotate(180deg)}
-.more{display:flex;gap:14px;padding:0 14px 14px 20px}
+.more{display:flex;gap:14px;padding:0 14px 14px 14px}
 .more img{width:96px;flex:none;border-radius:6px;align-self:flex-start;background:var(--line)}
 .more>div{min-width:0;display:grid;gap:8px;font-size:14px}
 .ext{margin:0;color:var(--fg)}
 .pub{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
 .pub b{color:var(--fg)}
 .mine{border-top:1px solid var(--line);padding-top:8px}
-.mine b{font-family:var(--display);font-weight:500}
+.mine b{font-family:var(--display);font-weight:500;color:var(--k)}
 .src{font-size:12px;color:var(--muted)}
 .src a{color:var(--accent)}
 @media (prefers-reduced-motion:reduce){.chev{transition:none}}
@@ -129,13 +129,12 @@ function render(){
   $("list").innerHTML=shown.map(i=>`
     <details class="card" data-id="${esc(i.id)}" style="--k:var(--${KINDS[i.kind]?i.kind:"film"})">
     <summary class="item">
-      <div class="stripe"></div>
       <div class="main">
         <p class="t">${esc(i.title)}</p>
         ${i.original?`<div class="orig">${esc(i.original)}</div>`:""}
         <div class="meta"><span class="kind">${KINDS[i.kind]||""}</span>${i.year?`<span>${i.year}</span>`:""}${i.genres?.length?`<span>${esc(i.genres.join(", "))}</span>`:""}<span class="status">${STAT[i.status]||""}</span></div>
       </div>
-      <div class="score">${i.rating?`<b>${i.rating}</b><small>моя оценка</small>`:""}<div class="chev" aria-hidden="true">▼</div></div>
+      <div class="score">${i.rating?`<div class="my"><b>${i.rating}</b><small>моя оценка</small></div>`:""}<div class="chev" aria-hidden="true">▼</div></div>
     </summary>
     <div class="more"><div>
       <p class="ext">${i.wiki?"Загружаю описание…":"Описания пока нет."}</p>
