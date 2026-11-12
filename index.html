@@ -20,7 +20,8 @@
   --bg:#10151c; --surface:#18202a; --fg:#e7ecf2; --muted:#93a1b2; --line:#2a3440;
   --accent:#7e9ff5; --film:#7e9ff5; --series:#4cc9a3; --cartoon:#f0a052; --anime:#f07ab8; color-scheme:dark}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 var(--body)}
-.wrap{max-width:760px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:20px}
+#bg{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.wrap{position:relative;z-index:1;max-width:760px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:20px}
 h1{font:700 clamp(26px,6vw,38px)/1.1 var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
 .sub{color:var(--muted);margin:4px 0 0}
 .stats{display:flex;flex-wrap:wrap;gap:8px 20px;font-variant-numeric:tabular-nums;color:var(--muted)}
@@ -68,6 +69,7 @@ details[open] .chev{transform:rotate(180deg)}
 
 </head>
 <body>
+<canvas id="bg" aria-hidden="true"></canvas>
 <div class="wrap">
   <header>
     <h1>Моя медиатека</h1>
@@ -155,6 +157,53 @@ $("q").addEventListener("input",render);
 fetch("titles.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw r.status;return r.json()})
   .then(d=>{items=d;render()})
   .catch(()=>{$("list").innerHTML='<div class="empty"><b>Не удаётся загрузить</b>Проверьте соединение и обновите страницу.</div>'});
+
+// Фон: лепестки сакуры в светлой теме, бегущие «дорожки схемы» в тёмной
+(()=>{
+  if(matchMedia("(prefers-reduced-motion:reduce)").matches)return;
+  const c=$("bg"),x=c.getContext("2d"),mq=matchMedia("(prefers-color-scheme:dark)");
+  const isDark=()=>{const t=document.documentElement.dataset.theme;return t?t==="dark":mq.matches};
+  const R=Math.random,G=28; // G — шаг сетки дорожек
+  let W,H,dark,petals,runners;
+  function init(){
+    const d=Math.min(devicePixelRatio||1,2);
+    W=innerWidth;H=innerHeight;c.width=W*d;c.height=H*d;x.setTransform(d,0,0,d,0,0);
+    dark=isDark();
+    petals=Array.from({length:Math.round(W*H/26000)+8},()=>({x:R()*W,y:R()*H,s:5+R()*7,v:.35+R()*.6,a:R()*6.28,w:.01+R()*.02,r:R()*6.28}));
+    runners=Array.from({length:Math.round(W*H/60000)+5},spawn);
+  }
+  function spawn(){return{x:Math.round(R()*W/G)*G,y:Math.round(R()*H/G)*G,d:R()*4|0,n:0,life:40+R()*120|0,h:R()<.7?"126,159,245":"76,201,163"}}
+  function frame(){
+    if(dark){
+      // затухающий след вместо полной очистки
+      x.globalCompositeOperation="destination-out";x.fillStyle="rgba(0,0,0,.04)";x.fillRect(0,0,W,H);
+      x.globalCompositeOperation="source-over";x.lineWidth=1;
+      runners.forEach((r,i)=>{
+        const dx=[2,0,-2,0][r.d],dy=[0,2,0,-2][r.d];
+        x.strokeStyle=`rgba(${r.h},.45)`;x.beginPath();x.moveTo(r.x,r.y);r.x+=dx;r.y+=dy;x.lineTo(r.x,r.y);x.stroke();
+        if((r.n+=2)%G===0){
+          if(R()<.4){r.d=(r.d+(R()<.5?1:3))%4;x.fillStyle=`rgba(${r.h},.7)`;x.fillRect(r.x-1.5,r.y-1.5,3,3)}
+          if(--r.life<0||r.x<0||r.x>W||r.y<0||r.y>H)runners[i]=spawn();
+        }
+      });
+    }else{
+      x.clearRect(0,0,W,H);
+      for(const p of petals){
+        p.a+=p.w;p.r+=p.w*1.5;p.y+=p.v;p.x+=Math.sin(p.a)*.7+.25;
+        if(p.y>H+12){p.y=-12;p.x=R()*W}
+        if(p.x>W+12)p.x=-12;
+        x.save();x.translate(p.x,p.y);x.rotate(p.r);x.scale(1,.55+.45*Math.cos(p.a));
+        x.fillStyle="rgba(238,140,175,.5)";x.beginPath();
+        x.moveTo(0,-p.s);x.bezierCurveTo(p.s*.9,-p.s*.6,p.s*.7,p.s*.7,0,p.s);x.bezierCurveTo(-p.s*.7,p.s*.7,-p.s*.9,-p.s*.6,0,-p.s);
+        x.fill();x.restore();
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  addEventListener("resize",init);mq.addEventListener("change",init);
+  new MutationObserver(init).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+  init();frame();
+})();
 </script>
 </body>
 </html>
